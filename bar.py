@@ -549,7 +549,12 @@ class WidgetWrapper(Box):
 
         bar = self._get_bar()
         if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open and self.widget_key in APPLET_WIDGETS:
-            bar.popout_manager.open(self.widget_key, self.event_box)
+            show_scrim = getattr(bar.popout_manager, "_show_scrim", True)
+            self._opened_by_hover = not show_scrim
+            if not show_scrim:
+                bar.popout_manager.on_hover_enter = self._cancel_leave_timer
+                bar.popout_manager.on_hover_leave = self._schedule_hover_close
+            bar.popout_manager.open(self.widget_key, self.event_box, show_scrim=show_scrim)
             return False
 
         if not _is_hover_enabled_for_key(self.widget_key):
@@ -574,6 +579,10 @@ class WidgetWrapper(Box):
                     return True
         except Exception:
             pass
+        bar = self._get_bar()
+        if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
+            if bar.popout_manager.is_pointer_inside():
+                return True
         try:
             if self._popup and self._popup.get_realized() and self._popup.is_visible():
                 x, y = self._popup.get_pointer()
@@ -610,7 +619,9 @@ class WidgetWrapper(Box):
             bar = self._get_bar()
             if bar and hasattr(bar, "popout_manager"):
                 self._opened_by_hover = True
-                bar.popout_manager.open(self.widget_key, self.event_box)
+                bar.popout_manager.on_hover_enter = self._cancel_leave_timer
+                bar.popout_manager.on_hover_leave = self._schedule_hover_close
+                bar.popout_manager.open(self.widget_key, self.event_box, show_scrim=False)
                 return False
             popup = self._ensure_popup()
             if popup and not popup.is_visible():
@@ -629,9 +640,7 @@ class WidgetWrapper(Box):
 
     def _on_popup_enter(self):
         self._pointer_in_popup = True
-        if self._leave_timer is not None:
-            GLib.source_remove(self._leave_timer)
-            self._leave_timer = None
+        self._cancel_leave_timer()
 
     def _on_popup_leave(self, event):
         if getattr(event, "detail", None) != Gdk.NotifyType.INFERIOR:
@@ -639,10 +648,13 @@ class WidgetWrapper(Box):
             if self._opened_by_hover:
                 self._schedule_hover_close()
 
-    def _schedule_hover_close(self):
+    def _cancel_leave_timer(self):
         if self._leave_timer is not None:
             GLib.source_remove(self._leave_timer)
             self._leave_timer = None
+
+    def _schedule_hover_close(self):
+        self._cancel_leave_timer()
         self._leave_timer = GLib.timeout_add(300, self._check_and_close_hover)
 
     def _check_and_close_hover(self):
@@ -656,8 +668,13 @@ class WidgetWrapper(Box):
             import services.singletons as singletons
             if singletons.bar_manager and singletons.bar_manager._dash and singletons.bar_manager._dash.is_visible():
                 singletons.bar_manager._dash.toggle(None)
-        elif self._popup and self._popup.is_visible():
-            self._popup.toggle()
+        else:
+            bar = self._get_bar()
+            if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
+                if bar.popout_manager._current_key == self.widget_key:
+                    bar.popout_manager.close()
+            elif self._popup and self._popup.is_visible():
+                self._popup.toggle()
 
         self._opened_by_hover = False
         return False
@@ -747,7 +764,7 @@ class WidgetWrapper(Box):
             return False
         bar = self._get_bar()
         if bar and hasattr(bar, "popout_manager") and self.widget_key in APPLET_WIDGETS:
-            bar.popout_manager.toggle(self.widget_key, self.event_box)
+            bar.popout_manager.toggle(self.widget_key, self.event_box, show_scrim=True)
             return True
         popup = self._ensure_popup()
         if popup is None:
@@ -1083,6 +1100,18 @@ class GroupWrapper(Box):
             GLib.source_remove(self._leave_timer)
             self._leave_timer = None
 
+        bar = self._get_bar()
+        if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
+            valid_keys = [k for k in self.widget_keys if k in APPLET_WIDGETS]
+            if valid_keys:
+                show_scrim = getattr(bar.popout_manager, "_show_scrim", True)
+                self._opened_by_hover = not show_scrim
+                if not show_scrim:
+                    bar.popout_manager.on_hover_enter = self._cancel_leave_timer
+                    bar.popout_manager.on_hover_leave = self._schedule_hover_close
+                bar.popout_manager.open(valid_keys[0], self._outer_eb, show_scrim=show_scrim)
+                return False
+
         if not _is_hover_enabled_for_key(self.widget_keys):
             return False
         if self._hover_timer is not None:
@@ -1105,6 +1134,10 @@ class GroupWrapper(Box):
                     return True
         except Exception:
             pass
+        bar = self._get_bar()
+        if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
+            if bar.popout_manager.is_pointer_inside():
+                return True
         try:
             if self._popup and self._popup.get_realized() and self._popup.is_visible():
                 x, y = self._popup.get_pointer()
@@ -1128,6 +1161,15 @@ class GroupWrapper(Box):
             return False
         if not self._pointer_in_widget and not self._is_pointer_actually_inside():
             return False
+        bar = self._get_bar()
+        if bar and hasattr(bar, "popout_manager"):
+            valid_keys = [k for k in self.widget_keys if k in APPLET_WIDGETS]
+            if valid_keys:
+                self._opened_by_hover = True
+                bar.popout_manager.on_hover_enter = self._cancel_leave_timer
+                bar.popout_manager.on_hover_leave = self._schedule_hover_close
+                bar.popout_manager.open(valid_keys[0], self._outer_eb, show_scrim=False)
+                return False
         popup = self._ensure_popup()
         if popup and not popup.is_visible():
             self._opened_by_hover = True
@@ -1136,9 +1178,7 @@ class GroupWrapper(Box):
 
     def _on_popup_enter(self):
         self._pointer_in_popup = True
-        if self._leave_timer is not None:
-            GLib.source_remove(self._leave_timer)
-            self._leave_timer = None
+        self._cancel_leave_timer()
 
     def _on_popup_leave(self, event):
         if getattr(event, "detail", None) != Gdk.NotifyType.INFERIOR:
@@ -1146,10 +1186,13 @@ class GroupWrapper(Box):
             if self._opened_by_hover:
                 self._schedule_hover_close()
 
-    def _schedule_hover_close(self):
+    def _cancel_leave_timer(self):
         if self._leave_timer is not None:
             GLib.source_remove(self._leave_timer)
             self._leave_timer = None
+
+    def _schedule_hover_close(self):
+        self._cancel_leave_timer()
         self._leave_timer = GLib.timeout_add(300, self._check_and_close_hover)
 
     def _check_and_close_hover(self):
@@ -1159,7 +1202,11 @@ class GroupWrapper(Box):
         if self._is_pointer_actually_inside():
             return False
 
-        if self._popup and self._popup.is_visible():
+        bar = self._get_bar()
+        if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
+            if bar.popout_manager._current_key in self.widget_keys:
+                bar.popout_manager.close()
+        elif self._popup and self._popup.is_visible():
             self._popup.toggle()
 
         self._opened_by_hover = False
@@ -1237,7 +1284,7 @@ class GroupWrapper(Box):
                 if 0 <= idx < len(self.widget_keys):
                     key = self.widget_keys[idx]
                     if key in APPLET_WIDGETS:
-                        bar.popout_manager.toggle(key, _widget)
+                        bar.popout_manager.toggle(key, _widget, show_scrim=True)
                         return True
             except ValueError:
                 pass
@@ -1265,7 +1312,7 @@ class GroupWrapper(Box):
         if bar and hasattr(bar, "popout_manager"):
             valid_keys = [k for k in self.widget_keys if k in APPLET_WIDGETS]
             if valid_keys:
-                bar.popout_manager.toggle(valid_keys[0], self._outer_eb)
+                bar.popout_manager.toggle(valid_keys[0], self._outer_eb, show_scrim=True)
                 return True
 
         popup = self._ensure_popup()

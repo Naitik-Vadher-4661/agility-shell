@@ -141,7 +141,24 @@ class UnifiedPopoutManager:
             pass
 
         self.window.add_keybinding("escape", lambda: self.close())
-        self.window.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.window.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.ENTER_NOTIFY_MASK
+            | Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
+        self.window.connect("enter-notify-event", self._on_window_enter)
+        self.window.connect("leave-notify-event", self._on_window_leave)
+        self.window.connect("notify::visible", self._on_window_visible_changed)
+
+        # Override toggle and close so applets calling window.toggle() or window.close() invoke popout_manager.close()
+        self.window.toggle = lambda *_: self.close()
+        self.window.close = lambda *_: self.close()
+        self.window.hide = lambda *_: self.close()
+
+        self._pointer_in_window: bool = False
+        self._show_scrim: bool = True
+        self.on_hover_enter: Callable[[], None] | None = None
+        self.on_hover_leave: Callable[[], None] | None = None
 
         # Scrim for outside click dismissal and subtle dimming
         self.scrim = PopoutScrim(bar=self.bar, on_dismiss=self.close)
@@ -156,6 +173,35 @@ class UnifiedPopoutManager:
         # Recalculate margins when bar or popout size changes
         self.window.connect("size-allocate", self._on_size_allocate)
         self.bar.connect("size-allocate", self._on_bar_size_allocate)
+
+    def _on_window_visible_changed(self, *_):
+        if self.is_open and not self.window.get_visible():
+            self.close()
+
+    def _on_window_enter(self, _widget, _event):
+        self._pointer_in_window = True
+        if self.on_hover_enter:
+            self.on_hover_enter()
+
+    def _on_window_leave(self, _widget, event):
+        if getattr(event, "detail", None) != Gdk.NotifyType.INFERIOR:
+            self._pointer_in_window = False
+            if self.on_hover_leave:
+                self.on_hover_leave()
+
+    def is_pointer_inside(self) -> bool:
+        if self._pointer_in_window:
+            return True
+        try:
+            if self.window.get_realized() and self.window.get_visible():
+                x, y = self.window.get_pointer()
+                alloc = self.window.get_allocation()
+                if 0 <= x < alloc.width and 0 <= y < alloc.height:
+                    self._pointer_in_window = True
+                    return True
+        except Exception:
+            pass
+        return False
 
     def _on_bar_size_allocate(self, *_):
         if self.is_open and self._current_anchor:
@@ -286,7 +332,7 @@ class UnifiedPopoutManager:
         else:
             self._set_left_margin(target_left)
 
-    def toggle(self, key: str, anchor_widget: Gtk.Widget) -> bool:
+    def toggle(self, key: str, anchor_widget: Gtk.Widget, show_scrim: bool = True) -> bool:
         """
         Toggle the popout for the given key and anchor.
         If already open for this key, closes it.
@@ -295,15 +341,16 @@ class UnifiedPopoutManager:
         if self.is_open and self._current_key == key:
             self.close()
             return False
-        self.open(key, anchor_widget)
+        self.open(key, anchor_widget, show_scrim=show_scrim)
         return True
 
-    def open(self, key: str, anchor_widget: Gtk.Widget):
+    def open(self, key: str, anchor_widget: Gtk.Widget, show_scrim: bool = True):
         """Open or smoothly transition to the given key and anchor."""
         widget = self._ensure_applet_widget(key)
         if not widget:
             return
 
+        self._show_scrim = show_scrim
         is_switching = self.is_open and self._current_key != key
 
         # Clear active class on previous anchor
@@ -325,18 +372,27 @@ class UnifiedPopoutManager:
         if is_switching:
             # Popout is already visible; smoothly slide to new position
             self._update_position(animate=True)
+            if show_scrim:
+                self.scrim.update_margin()
+                self.scrim.set_visible(True)
+                self.scrim.show()
+            else:
+                self.scrim.set_visible(False)
         else:
             # First open: set position immediately, then reveal
             self._update_position(animate=False)
-            self.scrim.update_margin()
-            self.scrim.set_visible(True)
-            self.scrim.show()
+            if show_scrim:
+                self.scrim.update_margin()
+                self.scrim.set_visible(True)
+                self.scrim.show()
+            else:
+                self.scrim.set_visible(False)
             self.window.set_visible(True)
             self.window.show_all()
 
     def close(self):
         """Close the popout and scrim gracefully."""
-        if not self.is_open:
+        if not self.is_open and not self.window.get_visible() and not self.scrim.get_visible():
             return
 
         if self._slide_timer is not None:
@@ -350,6 +406,12 @@ class UnifiedPopoutManager:
         self.is_open = False
         self._current_key = None
         self._current_anchor = None
+        self._pointer_in_window = False
+        self._show_scrim = True
+        self.on_hover_enter = None
+        self.on_hover_leave = None
 
-        self.window.set_visible(False)
-        self.scrim.set_visible(False)
+        if self.window.get_visible():
+            self.window.set_visible(False)
+        if self.scrim.get_visible():
+            self.scrim.set_visible(False)

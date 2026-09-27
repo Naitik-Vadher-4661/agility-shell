@@ -103,7 +103,10 @@ class LauncherAppItem(Button):
     def launch(self):
         increment_usage(self._app)
         dispatch_app(self._app)
-        self._launcher.toggle()
+        if hasattr(self._launcher, "close"):
+            self._launcher.close()
+        elif hasattr(self._launcher, "toggle"):
+            self._launcher.toggle()
 
 
 class LauncherGridItem(Button):
@@ -161,7 +164,10 @@ class LauncherGridItem(Button):
     def launch(self):
         increment_usage(self._app)
         dispatch_app(self._app)
-        self._launcher.toggle()
+        if hasattr(self._launcher, "close"):
+            self._launcher.close()
+        elif hasattr(self._launcher, "toggle"):
+            self._launcher.toggle()
 
 
 class LauncherApplet(Applet):
@@ -318,7 +324,9 @@ class LauncherApplet(Applet):
             if self._entry.get_text():
                 self._entry.set_text("")
                 return True
-            if hasattr(self.window, "toggle"):
+            if hasattr(self.window, "close"):
+                self.window.close()
+            elif hasattr(self.window, "toggle"):
                 self.window.toggle()
             return True
         if event.keyval == Gdk.KEY_Down:
