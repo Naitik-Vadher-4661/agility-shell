@@ -105,6 +105,7 @@ class UnifiedPopoutManager:
         self.is_open: bool = False
         self._current_key: str | None = None
         self._current_anchor: Gtk.Widget | None = None
+        self._current_position: str | None = None
         self._current_left: int = 0
         self._slide_timer: int | None = None
         self._fade_timer: int | None = None
@@ -193,11 +194,11 @@ class UnifiedPopoutManager:
         return self._pointer_in_window
 
     def _on_bar_size_allocate(self, *_):
-        if self.is_open and self._current_anchor:
+        if self.is_open and (self._current_anchor or self._current_position):
             self._update_position(animate=False)
 
     def _on_size_allocate(self, *_):
-        if self.is_open and self._current_anchor:
+        if self.is_open and (self._current_anchor or self._current_position):
             self._update_position(animate=False)
 
     def _ensure_applet_widget(self, key: str) -> Gtk.Widget | None:
@@ -222,7 +223,7 @@ class UnifiedPopoutManager:
             logger.error(f"[PopoutManager] Error creating applet for key '{key}': {e}")
             return None
 
-    def _calculate_target_left(self, anchor_widget: Gtk.Widget) -> int:
+    def _calculate_target_left(self, anchor_widget: Gtk.Widget | None = None, position: str | None = None) -> int:
         monitor_x, monitor_width, _ = _get_monitor_geometry(self.bar)
 
         popout_width = self.window.get_allocated_width()
@@ -239,6 +240,24 @@ class UnifiedPopoutManager:
         parent_margin_vals = tuple(parent_margin) if hasattr(parent_margin, "__iter__") else (0, 0, 0, 0)
         parent_right_margin = parent_margin_vals[1] if len(parent_margin_vals) > 1 else 0
         parent_left_margin = parent_margin_vals[3] if len(parent_margin_vals) > 3 else 0
+
+        if position:
+            pos = position.lower()
+            if pos == "left":
+                raw_margin_left = parent_left_margin + EDGE_MARGIN
+            elif pos == "right":
+                raw_margin_left = monitor_width - popout_width - parent_right_margin - EDGE_MARGIN
+            else:
+                raw_margin_left = (monitor_width - popout_width) // 2
+            min_margin = EDGE_MARGIN
+            max_margin = max(EDGE_MARGIN, monitor_width - popout_width - EDGE_MARGIN)
+            return max(min_margin, min(raw_margin_left, max_margin))
+
+        if anchor_widget is None:
+            raw_margin_left = (monitor_width - popout_width) // 2
+            min_margin = EDGE_MARGIN
+            max_margin = max(EDGE_MARGIN, monitor_width - popout_width - EDGE_MARGIN)
+            return max(min_margin, min(raw_margin_left, max_margin))
 
         h_align = getattr(self.bar, "horizontal_alignment", "center")
         min_width = getattr(self.bar, "min_width", False)
@@ -319,15 +338,15 @@ class UnifiedPopoutManager:
         self._slide_timer = GLib.timeout_add(16, _step)
 
     def _update_position(self, animate: bool = True):
-        if not self._current_anchor:
+        if not self._current_anchor and not self._current_position:
             return
-        target_left = self._calculate_target_left(self._current_anchor)
+        target_left = self._calculate_target_left(self._current_anchor, position=self._current_position)
         if animate and self.is_open:
             self._animate_to_left(target_left)
         else:
             self._set_left_margin(target_left)
 
-    def toggle(self, key: str, anchor_widget: Gtk.Widget, show_scrim: bool = True) -> bool:
+    def toggle(self, key: str, anchor_widget: Gtk.Widget | None = None, show_scrim: bool = True, position: str | None = None) -> bool:
         """
         Toggle the popout for the given key and anchor.
         If already open for this key, closes it.
@@ -336,10 +355,10 @@ class UnifiedPopoutManager:
         if self.is_open and self._current_key == key:
             self.close()
             return False
-        self.open(key, anchor_widget, show_scrim=show_scrim)
+        self.open(key, anchor_widget, show_scrim=show_scrim, position=position)
         return True
 
-    def open(self, key: str, anchor_widget: Gtk.Widget, show_scrim: bool = True):
+    def open(self, key: str, anchor_widget: Gtk.Widget | None = None, show_scrim: bool = True, position: str | None = None):
         """Open or smoothly transition to the given key and anchor."""
         widget = self._ensure_applet_widget(key)
         if not widget:
@@ -355,11 +374,13 @@ class UnifiedPopoutManager:
 
         self._current_key = key
         self._current_anchor = anchor_widget
+        self._current_position = position
         self.is_open = True
 
-        # Add active classes to new anchor
-        anchor_widget.add_style_class("active-popout")
-        anchor_widget.add_style_class("applet-open")
+        # Add active classes to new anchor if provided
+        if anchor_widget is not None:
+            anchor_widget.add_style_class("active-popout")
+            anchor_widget.add_style_class("applet-open")
 
         # Switch content in stack
         self.stack.set_visible_child_name(key)
@@ -401,6 +422,7 @@ class UnifiedPopoutManager:
         self.is_open = False
         self._current_key = None
         self._current_anchor = None
+        self._current_position = None
         self._pointer_in_window = False
         self._show_scrim = True
         self.on_hover_enter = None

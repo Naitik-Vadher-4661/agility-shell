@@ -141,6 +141,7 @@ class UserOptions:
     class Launcher:
         def __init__(self):
             self.grid = False
+            self.keybind_position = "center"
 
     class Wallpaper:
         def __init__(self):

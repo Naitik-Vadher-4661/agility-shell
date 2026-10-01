@@ -2511,6 +2511,18 @@ class BarManager:
                 self._dash.toggle_applets(active_monitor)
             return
 
+        if key == "Launcher":
+            keybind_pos = getattr(user_options.launcher, "keybind_position", "center")
+            for (monitor, _), bar in self._bars.items():
+                if get_connector_from_monitor_id(bar.monitor_id) == active_output:
+                    if hasattr(bar, "popout_manager") and bar.popout_manager:
+                        bar.popout_manager.toggle(key, anchor_widget=None, show_scrim=True, position=keybind_pos)
+                        return
+            for bar in self._bars.values():
+                if hasattr(bar, "popout_manager") and bar.popout_manager:
+                    bar.popout_manager.toggle(key, anchor_widget=None, show_scrim=True, position=keybind_pos)
+                    return
+
         # Search bars on active monitor for the widget
         for (monitor, _), bar in self._bars.items():
             if get_connector_from_monitor_id(bar.monitor_id) != active_output:
