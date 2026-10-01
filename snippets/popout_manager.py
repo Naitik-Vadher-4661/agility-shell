@@ -277,12 +277,18 @@ class UnifiedPopoutManager:
         return max(min_margin, min(raw_margin_left, max_margin))
 
     def _get_vertical_offset(self) -> int:
-        offset = self.bar.get_allocated_height()
-        if offset <= 1:
-            offset = self.bar.get_preferred_size()[1].height
-        if offset <= 1:
-            offset = 40
-        return offset + 8
+        offset = 0
+        if hasattr(self.bar, "_centerbox") and self.bar._centerbox:
+            offset = self.bar._centerbox.get_allocated_height()
+            if offset <= 4:
+                offset = self.bar._centerbox.get_preferred_size()[1].height
+        if offset <= 4:
+            offset = self.bar.get_allocated_height()
+            if offset <= 4:
+                offset = self.bar.get_preferred_size()[1].height
+        if offset <= 4:
+            offset = 36
+        return offset + 6
 
     def _set_left_margin(self, left: int):
         self._current_left = left
