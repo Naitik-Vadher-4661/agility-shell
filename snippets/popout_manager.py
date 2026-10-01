@@ -190,18 +190,7 @@ class UnifiedPopoutManager:
                 self.on_hover_leave()
 
     def is_pointer_inside(self) -> bool:
-        if self._pointer_in_window:
-            return True
-        try:
-            if self.window.get_realized() and self.window.get_visible():
-                x, y = self.window.get_pointer()
-                alloc = self.window.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_window = True
-                    return True
-        except Exception:
-            pass
-        return False
+        return self._pointer_in_window
 
     def _on_bar_size_allocate(self, *_):
         if self.is_open and self._current_anchor:

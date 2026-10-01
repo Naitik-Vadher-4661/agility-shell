@@ -570,28 +570,10 @@ class WidgetWrapper(Box):
     def _is_pointer_actually_inside(self) -> bool:
         if self._pointer_in_widget or self._pointer_in_popup:
             return True
-        try:
-            if self.event_box and self.event_box.get_realized():
-                x, y = self.event_box.get_pointer()
-                alloc = self.event_box.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_widget = True
-                    return True
-        except Exception:
-            pass
         bar = self._get_bar()
         if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
             if bar.popout_manager.is_pointer_inside():
                 return True
-        try:
-            if self._popup and self._popup.get_realized() and self._popup.is_visible():
-                x, y = self._popup.get_pointer()
-                alloc = self._popup.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_popup = True
-                    return True
-        except Exception:
-            pass
         return False
 
     def _on_popup_interaction(self):
@@ -1125,28 +1107,10 @@ class GroupWrapper(Box):
     def _is_pointer_actually_inside(self) -> bool:
         if self._pointer_in_widget or self._pointer_in_popup:
             return True
-        try:
-            if self._outer_eb and self._outer_eb.get_realized():
-                x, y = self._outer_eb.get_pointer()
-                alloc = self._outer_eb.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_widget = True
-                    return True
-        except Exception:
-            pass
         bar = self._get_bar()
         if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
             if bar.popout_manager.is_pointer_inside():
                 return True
-        try:
-            if self._popup and self._popup.get_realized() and self._popup.is_visible():
-                x, y = self._popup.get_pointer()
-                alloc = self._popup.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_popup = True
-                    return True
-        except Exception:
-            pass
         return False
 
     def _on_popup_interaction(self):
