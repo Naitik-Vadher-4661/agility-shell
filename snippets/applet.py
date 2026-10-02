@@ -35,7 +35,7 @@ class AppletPage(Box):
 
 
 class Applet(Box):
-    def __init__(self, main_menu: AppletPage, homogeneous: bool = False, **kwargs):
+    def __init__(self, main_menu: AppletPage, homogeneous: bool = True, **kwargs):
         self.main_menu = main_menu
 
         self._back_button = Button(

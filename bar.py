@@ -238,6 +238,16 @@ def set_open_applet(applet: AppletWindow | None):
     open_applet = applet
 
 def is_applet_open(*keys: str) -> bool:
+    from services.singletons import bar_manager
+    if bar_manager and hasattr(bar_manager, "_bars"):
+        for b in bar_manager._bars.values():
+            pm = getattr(b, "popout_manager", None)
+            if pm and (pm.is_open or (pm.window and pm.window.get_visible()) or pm.is_pointer_inside()):
+                if not keys:
+                    return True
+                if pm._current_key in keys:
+                    return True
+
     if open_applet is None or not open_applet.is_visible():
         return False
     if not keys:
@@ -2183,6 +2193,12 @@ class Bar(Window):
     def _update_smart_autohide(self):
         if not self.auto_hide or edit_mode.edit_mode:
             return
+        if hasattr(self, "popout_manager") and self.popout_manager and (
+            self.popout_manager.is_open
+            or (self.popout_manager.window and self.popout_manager.window.get_visible())
+            or self.popout_manager.is_pointer_inside()
+        ):
+            return
         if is_applet_open():
             return
         if self._is_hovered:
@@ -2233,6 +2249,12 @@ class Bar(Window):
     def _try_hide(self):
         self._hide_timeout = None
         if self._is_hovered:
+            return False
+        if hasattr(self, "popout_manager") and self.popout_manager and (
+            self.popout_manager.is_open
+            or (self.popout_manager.window and self.popout_manager.window.get_visible())
+            or self.popout_manager.is_pointer_inside()
+        ):
             return False
         if open_applet is not None and open_applet.is_visible():
             return False
