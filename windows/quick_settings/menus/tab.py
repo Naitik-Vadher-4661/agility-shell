@@ -19,6 +19,8 @@ class TabMenu(AnimatedScroll):
             propagate_natural_height=True,
             overlay_scroll=True,
             kinetic_scroll=True,
+            v_expand=True,
+            h_expand=True,
             **kwargs,
         )
 
@@ -46,6 +48,8 @@ class TabStack(Box):
             transition_type=transition_type,
             bezier_curve=(0.34, 1.3, 0.64, 1.0),
             duration=0.45,
+            v_expand=True,
+            h_expand=True,
         )
         self.tab_stack.set_homogeneous(False)
         self.tab_stack.set_vhomogeneous(False)
@@ -55,6 +59,8 @@ class TabStack(Box):
         super().__init__(
             orientation="v",
             spacing=12,
+            v_expand=True,
+            h_expand=True,
             children=[self.tab_switcher, self.tab_stack],
             **kwargs,
         )
