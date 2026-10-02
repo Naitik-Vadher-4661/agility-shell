@@ -428,16 +428,40 @@ cmd_toggle() {
 
 cmd_volume() {
     local action="${1:-up}"
-    local step="${2:-0.05}"
+    local step="${2:-5}"
     case "${action,,}" in
         up|raise|+)
-            fabric-cli exec agility-shell "import services.singletons as s; s.audio.speaker.volume = min(1.0, round(s.audio.speaker.volume + float($step), 2)) if s.audio and s.audio.speaker else None" 2>/dev/null || info "Shell not active."
+            if command -v fabric-cli &>/dev/null && fabric-cli exec agility-shell "import services.singletons as s; (setattr(s.audio.speaker, 'volume', min(100.0, round(s.audio.speaker.volume + float($step), 2))) if s.audio and s.audio.speaker else (_ for _ in ()).throw(RuntimeError('No speaker')))" &>/dev/null; then
+                :
+            elif command -v wpctl &>/dev/null; then
+                wpctl set-volume @DEFAULT_AUDIO_SINK@ "${step}%+" -l 1.0
+            elif command -v pactl &>/dev/null; then
+                pactl set-sink-volume @DEFAULT_SINK@ "+${step}%"
+            else
+                info "No audio backend available."
+            fi
             ;;
         down|lower|-)
-            fabric-cli exec agility-shell "import services.singletons as s; s.audio.speaker.volume = max(0.0, round(s.audio.speaker.volume - float($step), 2)) if s.audio and s.audio.speaker else None" 2>/dev/null || info "Shell not active."
+            if command -v fabric-cli &>/dev/null && fabric-cli exec agility-shell "import services.singletons as s; (setattr(s.audio.speaker, 'volume', max(0.0, round(s.audio.speaker.volume - float($step), 2))) if s.audio and s.audio.speaker else (_ for _ in ()).throw(RuntimeError('No speaker')))" &>/dev/null; then
+                :
+            elif command -v wpctl &>/dev/null; then
+                wpctl set-volume @DEFAULT_AUDIO_SINK@ "${step}%-"
+            elif command -v pactl &>/dev/null; then
+                pactl set-sink-volume @DEFAULT_SINK@ "-${step}%"
+            else
+                info "No audio backend available."
+            fi
             ;;
         mute|toggle-mute)
-            fabric-cli exec agility-shell "import services.singletons as s; s.audio.speaker.muted = not s.audio.speaker.muted if s.audio and s.audio.speaker else None" 2>/dev/null || info "Shell not active."
+            if command -v fabric-cli &>/dev/null && fabric-cli exec agility-shell "import services.singletons as s; (setattr(s.audio.speaker, 'muted', not s.audio.speaker.muted) if s.audio and s.audio.speaker else (_ for _ in ()).throw(RuntimeError('No speaker')))" &>/dev/null; then
+                :
+            elif command -v wpctl &>/dev/null; then
+                wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+            elif command -v pactl &>/dev/null; then
+                pactl set-sink-mute @DEFAULT_SINK@ toggle
+            else
+                info "No audio backend available."
+            fi
             ;;
         *)
             echo "Usage: agl volume <up|down|mute> [step]"
