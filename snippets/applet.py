@@ -64,6 +64,9 @@ class Applet(Box):
             bezier_curve=(0.34, 1.3, 0.64, 1.0),
             duration=0.45,
         )
+        self._stack.set_homogeneous(False)
+        self._stack.set_vhomogeneous(False)
+        self._stack.set_hhomogeneous(False)
         self._stack.add_named(main_menu, "main")
         self._stack.connect("notify::visible-child", self._on_page_changed)
 
@@ -110,6 +113,9 @@ class Applet(Box):
         page = self._stack.get_visible_child()
         if isinstance(page, AppletPage):
             self._update_header(page)
+        toplevel = self.get_toplevel()
+        if toplevel and hasattr(toplevel, "queue_resize"):
+            toplevel.queue_resize()
 
     def add_menu(self, name: str, menu) -> None:
         self._stack.add_named(menu(stack=self._stack), name)

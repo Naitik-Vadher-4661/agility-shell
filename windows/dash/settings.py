@@ -854,15 +854,86 @@ class DashSettingsPage(Box):
             body_widget=chips_wrapper,
         )
 
+        current_launcher_pos = getattr(user_options.launcher, "keybind_position", "center")
+        self._launcher_pos_left_btn = Button(
+            child=Box(
+                orientation="h",
+                spacing=4,
+                children=[
+                    Icon(icon_name="align-left-duotone", icon_size=16),
+                    Label(label="Left"),
+                ],
+            ),
+            style_classes=["option-selection-button"] + (["active"] if current_launcher_pos == "left" else []),
+            on_clicked=lambda *_: self._set_launcher_keybind_pos("left"),
+        )
+        self._launcher_pos_center_btn = Button(
+            child=Box(
+                orientation="h",
+                spacing=4,
+                children=[
+                    Icon(icon_name="text-align-center-duotone", icon_size=16),
+                    Label(label="Center"),
+                ],
+            ),
+            style_classes=["option-selection-button"] + (["active"] if current_launcher_pos in ("center", "middle") else []),
+            on_clicked=lambda *_: self._set_launcher_keybind_pos("center"),
+        )
+        self._launcher_pos_right_btn = Button(
+            child=Box(
+                orientation="h",
+                spacing=4,
+                children=[
+                    Icon(icon_name="align-right-duotone", icon_size=16),
+                    Label(label="Right"),
+                ],
+            ),
+            style_classes=["option-selection-button"] + (["active"] if current_launcher_pos == "right" else []),
+            on_clicked=lambda *_: self._set_launcher_keybind_pos("right"),
+        )
+
+        launcher_pos_row = create_setting_row(
+            title="Keybind Launcher Position",
+            subtitle="Screen position where launcher opens when invoked via keybind (Super+Space)",
+            control=Box(
+                style_classes=["option-selection-container"],
+                orientation="h",
+                spacing=4,
+                h_align="end",
+                children=[self._launcher_pos_left_btn, self._launcher_pos_center_btn, self._launcher_pos_right_btn],
+            ),
+            control_min_width=None,
+        )
+
+        launcher_card = self._create_card(
+            title="Launcher Keybind Shortcut",
+            description="Control appearance and positioning for shortcut-triggered launcher",
+            rows=[launcher_pos_row],
+        )
+
         page_box = Box(
             orientation="v",
             spacing=16,
             h_align="fill",
             h_expand=True,
             style="padding: 6px 12px 24px 4px;",
-            children=[header, hover_card, chips_card],
+            children=[header, hover_card, launcher_card, chips_card],
         )
         return page_box
+
+    def _set_launcher_keybind_pos(self, pos: str):
+        user_options.launcher.keybind_position = pos
+        user_options.save()
+        if hasattr(self, "_launcher_pos_left_btn"):
+            self._launcher_pos_left_btn.remove_style_class("active")
+            self._launcher_pos_center_btn.remove_style_class("active")
+            self._launcher_pos_right_btn.remove_style_class("active")
+            if pos == "left":
+                self._launcher_pos_left_btn.add_style_class("active")
+            elif pos == "right":
+                self._launcher_pos_right_btn.add_style_class("active")
+            else:
+                self._launcher_pos_center_btn.add_style_class("active")
 
     def _build_page_appearance(self) -> Box:
         header = create_page_header(
