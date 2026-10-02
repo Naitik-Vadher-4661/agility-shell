@@ -115,6 +115,9 @@ class UnifiedPopoutManager:
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.stack.set_transition_duration(140)
+        self.stack.set_homogeneous(False)
+        self.stack.set_vhomogeneous(False)
+        self.stack.set_hhomogeneous(False)
 
         self.container = Box(
             style_classes=["applet-popout-container"],
@@ -226,7 +229,12 @@ class UnifiedPopoutManager:
     def _calculate_target_left(self, anchor_widget: Gtk.Widget | None = None, position: str | None = None) -> int:
         monitor_x, monitor_width, _ = _get_monitor_geometry(self.bar)
 
-        popout_width = self.window.get_allocated_width()
+        vis_child = self.stack.get_visible_child()
+        if vis_child:
+            req_w = vis_child.get_preferred_size()[1].width
+            popout_width = req_w if req_w > 1 else self.window.get_allocated_width()
+        else:
+            popout_width = self.window.get_allocated_width()
         if popout_width <= 1:
             popout_width = self.window.get_preferred_size()[1].width
         if popout_width <= 1:
@@ -384,6 +392,7 @@ class UnifiedPopoutManager:
 
         # Switch content in stack
         self.stack.set_visible_child_name(key)
+        self.window.queue_resize()
 
         if is_switching:
             # Popout is already visible; smoothly slide to new position
