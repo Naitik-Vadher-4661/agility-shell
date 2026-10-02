@@ -6,7 +6,7 @@ from fabric.widgets.wayland import WaylandWindow as Window
 from fabric.widgets.box import Box
 from fabric.widgets.centerbox import CenterBox
 from fabric.widgets.eventbox import EventBox
-from snippets import HackedRevealer, enable_blur, set_blur_regions_from_widget, disable_blur, free_blur, AppletReveal, UnifiedPopoutManager
+from snippets import HackedRevealer, enable_blur, set_blur_region, set_blur_regions_from_widget, disable_blur, free_blur, AppletReveal, UnifiedPopoutManager
 from gi.repository import Gdk, Gtk, GLib, GtkLayerShell
 from bar_widgets import (
     LauncherButton, BluetoothButton, BatteryButton, CalendarButton, ClockButton,
@@ -570,28 +570,10 @@ class WidgetWrapper(Box):
     def _is_pointer_actually_inside(self) -> bool:
         if self._pointer_in_widget or self._pointer_in_popup:
             return True
-        try:
-            if self.event_box and self.event_box.get_realized():
-                x, y = self.event_box.get_pointer()
-                alloc = self.event_box.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_widget = True
-                    return True
-        except Exception:
-            pass
         bar = self._get_bar()
         if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
             if bar.popout_manager.is_pointer_inside():
                 return True
-        try:
-            if self._popup and self._popup.get_realized() and self._popup.is_visible():
-                x, y = self._popup.get_pointer()
-                alloc = self._popup.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_popup = True
-                    return True
-        except Exception:
-            pass
         return False
 
     def _on_popup_interaction(self):
@@ -1125,28 +1107,10 @@ class GroupWrapper(Box):
     def _is_pointer_actually_inside(self) -> bool:
         if self._pointer_in_widget or self._pointer_in_popup:
             return True
-        try:
-            if self._outer_eb and self._outer_eb.get_realized():
-                x, y = self._outer_eb.get_pointer()
-                alloc = self._outer_eb.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_widget = True
-                    return True
-        except Exception:
-            pass
         bar = self._get_bar()
         if bar and hasattr(bar, "popout_manager") and bar.popout_manager.is_open:
             if bar.popout_manager.is_pointer_inside():
                 return True
-        try:
-            if self._popup and self._popup.get_realized() and self._popup.is_visible():
-                x, y = self._popup.get_pointer()
-                alloc = self._popup.get_allocation()
-                if 0 <= x < alloc.width and 0 <= y < alloc.height:
-                    self._pointer_in_popup = True
-                    return True
-        except Exception:
-            pass
         return False
 
     def _on_popup_interaction(self):
@@ -1836,6 +1800,8 @@ class Bar(Window):
         self.connect("enter-notify-event", self._on_bar_enter)
         self.connect("leave-notify-event", self._on_bar_leave)
         self.connect("realize", self._on_realize)
+        self._centerbox.connect("size-allocate", lambda *_: self._update_blur_region())
+        self._revealer.connect("notify::child-revealed", lambda *_: self._update_blur_region())
         edit_mode.connect("notify::edit-mode", self._on_edit_mode_changed)
         self.gdk_monitor = monitor
         self.set_opacity(getattr(user_options.settings, "bar_opacity", 1.0))
@@ -1910,10 +1876,11 @@ class Bar(Window):
                 _apply_to_widget(c)
 
     def _on_realize(self, *_):
-        should_blur = getattr(user_options.settings, "bar_blur", True)
+        current_theme = getattr(user_options.settings, "bar_theme", "default")
+        should_blur = getattr(user_options.settings, "bar_blur", True) if current_theme in ("liquid-glass", "blurred", "tinted-glass") else getattr(user_options.settings, "bar_blur", False)
         if should_blur:
             self._blur_ctx = enable_blur(self)
-            GLib.timeout_add(1500, self._update_blur_region)
+            GLib.timeout_add(100, self._update_blur_region)
 
     def set_opacity(self, opacity: float):
         opacity = max(0.0, min(1.0, float(opacity)))
@@ -1962,8 +1929,21 @@ class Bar(Window):
         return section
 
     def _update_blur_region(self) -> bool:
-        if self._blur_ctx and self.get_realized():
-            set_blur_regions_from_widget(self._blur_ctx, self, accuracy=1, erode=0)
+        if not (self._blur_ctx and self.get_realized()):
+            return False
+        if hasattr(self, "_revealer") and not self._revealer.get_child_revealed():
+            set_blur_region(self._blur_ctx, 0, 0, 0, 0)
+            return False
+        if hasattr(self, "_centerbox") and self._centerbox.get_realized():
+            alloc = self._centerbox.get_allocation()
+            coords = self._centerbox.translate_coordinates(self, 0, 0)
+            if coords:
+                bx, by = coords
+                bw, bh = alloc.width, alloc.height
+                if bw > 0 and bh > 0:
+                    set_blur_region(self._blur_ctx, bx, by, bw, bh)
+                    return False
+        set_blur_regions_from_widget(self._blur_ctx, self, accuracy=1, erode=0)
         return False
 
     def apply_blur(self, enabled: bool) -> None:
@@ -2530,6 +2510,18 @@ class BarManager:
             if self._dash:
                 self._dash.toggle_applets(active_monitor)
             return
+
+        if key == "Launcher":
+            keybind_pos = getattr(user_options.launcher, "keybind_position", "center")
+            for (monitor, _), bar in self._bars.items():
+                if get_connector_from_monitor_id(bar.monitor_id) == active_output:
+                    if hasattr(bar, "popout_manager") and bar.popout_manager:
+                        bar.popout_manager.toggle(key, anchor_widget=None, show_scrim=True, position=keybind_pos)
+                        return
+            for bar in self._bars.values():
+                if hasattr(bar, "popout_manager") and bar.popout_manager:
+                    bar.popout_manager.toggle(key, anchor_widget=None, show_scrim=True, position=keybind_pos)
+                    return
 
         # Search bars on active monitor for the widget
         for (monitor, _), bar in self._bars.items():
