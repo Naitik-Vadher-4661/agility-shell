@@ -175,10 +175,20 @@ def resolve_theme_file(theme_filename: str) -> Optional[str]:
 
 def resolve_style_file(filename: str) -> str:
     """Resolves a stylesheet file checking user override first, then system defaults."""
+    if filename in ("fonts.css", "font.css"):
+        for base in get_search_data_dirs():
+            for folder in ["styles", "style"]:
+                for name in ["font.css", "fonts.css"]:
+                    p = os.path.join(base, folder, name)
+                    if os.path.isfile(p):
+                        return p
     for base in get_search_data_dirs():
         p = os.path.join(base, "style", filename)
         if os.path.exists(p):
             return p
+        p_plural = os.path.join(base, "styles", filename)
+        if os.path.exists(p_plural):
+            return p_plural
     return os.path.join(get_repo_dir(), "style", filename)
 
 def get_native_lib_path(lib_name: str, snippet_name: str) -> str:

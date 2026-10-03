@@ -43,6 +43,7 @@ class Applet(Box):
             child=Icon(icon_name="chevron-left"),
             on_clicked=lambda *_: self._stack.set_visible_child_name("main"),
         )
+        self._back_button.set_no_show_all(True)
         self._back_button.set_visible(False)
 
         self._title_slot = Box()
@@ -85,6 +86,7 @@ class Applet(Box):
 
     def _on_visibility_changed(self, *_):
         self._stack.set_visible_child(self.main_menu)
+        self._update_header(self.main_menu)
 
     def _update_header(self, page: AppletPage):
         self._back_button.set_visible(not page.is_first)

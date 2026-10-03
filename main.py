@@ -50,7 +50,7 @@ def seed_user_environment():
 
     # Clean up stale legacy component stylesheets in user style dir that shadow updated system stylesheets
     # Keep user customization files: borders, fonts, colors, agility-shell-colors, or custom*
-    whitelist = {"borders.css", "fonts.css", "colors.css", "agility-shell-colors.css", "custom.css"}
+    whitelist = {"borders.css", "fonts.css", "font.css", "colors.css", "agility-shell-colors.css", "custom.css"}
     if os.path.isdir(style_dir):
         for fname in os.listdir(style_dir):
             if fname.endswith(".css") and fname not in whitelist and not fname.startswith("custom"):

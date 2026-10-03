@@ -6,14 +6,16 @@ from gi.repository import GLib
 from loguru import logger
 from plugin_loader import apply_plugin_css
 from services.paths import get_user_config_dir, get_repo_dir, resolve_style_file
+from services.fonts import font_service
 
 
-def compile_resolved_stylesheet() -> str | None:
+def compile_resolved_stylesheet(reload_callback=None) -> str | None:
     """
     Loads style.css and resolves every @import "<file>" with resolve_style_file(fname),
     ensuring user overrides in ~/.config/agility-shell/style/ (such as Matugen-generated
     colors.css, user borders.css, user fonts.css) take precedence over static repo defaults.
-    Also appends custom.css if present in the user style directory.
+    Also compiles user font definitions (including automatic Google Fonts download & registration)
+    and appends custom.css if present in the user style directory.
     """
     target_style = resolve_style_file("style.css")
     if not os.path.isfile(target_style):
@@ -25,6 +27,10 @@ def compile_resolved_stylesheet() -> str | None:
 
         def _replace_import(match: re.Match) -> str:
             fname = match.group(1).strip()
+            if fname in ("fonts.css", "font.css"):
+                compiled_fonts = font_service.get_compiled_font_css(on_installed=reload_callback)
+                return f"\n/* --- Font Definitions --- */\n{compiled_fonts}\n"
+
             resolved = resolve_style_file(fname)
             if os.path.isfile(resolved):
                 return f'@import "{resolved}";'
@@ -33,6 +39,8 @@ def compile_resolved_stylesheet() -> str | None:
         resolved_css = re.sub(r'@import\s+(?:url\()?["\']?([^"\')]+)["\']?\)?\s*;', _replace_import, content)
 
         user_custom = os.path.join(get_user_config_dir(), "style", "custom.css")
+        if not os.path.isfile(user_custom):
+            user_custom = os.path.join(get_user_config_dir(), "styles", "custom.css")
         if os.path.isfile(user_custom):
             resolved_css += f'\n@import "{user_custom}";\n'
 
@@ -54,6 +62,14 @@ class StyleService(Service):
         os.makedirs(style_dir, exist_ok=True)
         self.style_monitor = monitor_file(style_dir)
         self.style_monitor.connect("changed", self._on_style_file_changed)
+
+        styles_dir = os.path.join(get_user_config_dir(), "styles")
+        os.makedirs(styles_dir, exist_ok=True)
+        try:
+            self.styles_monitor = monitor_file(styles_dir)
+            self.styles_monitor.connect("changed", self._on_style_file_changed)
+        except Exception as e:
+            logger.debug(f"[StyleService] Styles monitor error: {e}")
 
         repo_style_dir = os.path.join(get_repo_dir(), "style")
         if os.path.isdir(repo_style_dir) and os.path.abspath(repo_style_dir) != os.path.abspath(style_dir):
@@ -79,7 +95,7 @@ class StyleService(Service):
 
     def reload(self, *_):
         try:
-            resolved_css = compile_resolved_stylesheet()
+            resolved_css = compile_resolved_stylesheet(reload_callback=self.reload)
             if resolved_css:
                 target_style = resolve_style_file("style.css")
                 base_dir = os.path.dirname(target_style) if os.path.isfile(target_style) else "."

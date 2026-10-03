@@ -481,7 +481,7 @@ seed_user_configuration() {
         local fname
         fname="$(basename "$f")"
         case "$fname" in
-            borders.css|fonts.css|colors.css|agility-shell-colors.css|custom*.css)
+            borders.css|fonts.css|font.css|colors.css|agility-shell-colors.css|custom*.css)
                 ;;
             *)
                 if [[ -f "$src_data/style/$fname" ]]; then
