@@ -481,16 +481,21 @@ seed_user_configuration() {
         done
     fi
 
-    for css in borders.css fonts.css colors.css; do
-        if [[ ! -f "$USER_CONFIG/custom_style/$css" && -f "$src_data/style/$css" ]]; then
-            cp "$src_data/style/$css" "$USER_CONFIG/custom_style/$css"
+    # Seed template custom_style files if missing
+    for tpl in border.css font.css color.css README.md; do
+        if [[ ! -f "$USER_CONFIG/custom_style/$tpl" && -f "$src_data/custom_style/$tpl" ]]; then
+            cp "$src_data/custom_style/$tpl" "$USER_CONFIG/custom_style/$tpl"
         fi
     done
 
+    # Clean up legacy user style dir to keep user config directory clean
+    if [[ -d "$USER_CONFIG/style" ]]; then
+        rm -rf "$USER_CONFIG/style"
+    fi
+
     # Prune stale legacy component stylesheets in user custom_style dir
-    for dir in "$USER_CONFIG/custom_style" "$USER_CONFIG/style"; do
-        [[ -d "$dir" ]] || continue
-        for f in "$dir"/*.css; do
+    if [[ -d "$USER_CONFIG/custom_style" ]]; then
+        for f in "$USER_CONFIG/custom_style"/*.css; do
             [[ -f "$f" ]] || continue
             local fname
             fname="$(basename "$f")"
@@ -504,7 +509,7 @@ seed_user_configuration() {
                     ;;
             esac
         done
-    done
+    fi
 
     # Seed baseline niri.kdl if not present
     if [[ -f "$src_data/config/niri.kdl" ]]; then

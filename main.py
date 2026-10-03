@@ -11,6 +11,7 @@ from services.paths import (
     get_user_state_dir,
     resolve_style_file,
     get_user_style_dir,
+    get_search_data_dirs,
 )
 
 def _on_signal(*_):
@@ -45,21 +46,28 @@ def seed_user_environment():
                     shutil.copy2(src_f, dst_f)
                 except Exception:
                     pass
+        # Clean up legacy style dir to keep user config directory clean
+        try:
+            shutil.rmtree(legacy_style_dir)
+        except Exception:
+            pass
 
     # Ensure core configuration files are present
     get_config_path("config.json")
     get_suits_config_path()
 
-    # Seed baseline stylesheets into user custom_style dir if missing
-    for css_file in ["borders.css", "fonts.css", "colors.css"]:
-        user_css = os.path.join(custom_style_dir, css_file)
-        if not os.path.exists(user_css):
-            default_css = resolve_style_file(css_file)
-            if os.path.exists(default_css) and default_css != user_css:
-                try:
-                    shutil.copy2(default_css, user_css)
-                except Exception:
-                    pass
+    # Seed template custom_style files if missing
+    for template_name in ["border.css", "font.css", "color.css", "README.md"]:
+        target_path = os.path.join(custom_style_dir, template_name)
+        if not os.path.exists(target_path):
+            for base in get_search_data_dirs():
+                src_candidate = os.path.join(base, "custom_style", template_name)
+                if os.path.isfile(src_candidate):
+                    try:
+                        shutil.copy2(src_candidate, target_path)
+                    except Exception:
+                        pass
+                    break
 
     # Clean up stale legacy component stylesheets in user custom_style dir that shadow updated system stylesheets
     whitelist = {
@@ -68,15 +76,15 @@ def seed_user_environment():
         "colors.css", "color.css",
         "agility-shell-colors.css",
         "custom.css", "style.css",
+        "README.md",
     }
-    for target_dir in [custom_style_dir, legacy_style_dir]:
-        if os.path.isdir(target_dir):
-            for fname in os.listdir(target_dir):
-                if fname.endswith(".css") and fname not in whitelist and not fname.startswith("custom"):
-                    try:
-                        os.remove(os.path.join(target_dir, fname))
-                    except Exception:
-                        pass
+    if os.path.isdir(custom_style_dir):
+        for fname in os.listdir(custom_style_dir):
+            if fname.endswith(".css") and fname not in whitelist and not fname.startswith("custom"):
+                try:
+                    os.remove(os.path.join(custom_style_dir, fname))
+                except Exception:
+                    pass
 
     # Migrate existing widget settings if needed
     user_settings = os.path.join(user_dir, "widget_settings.json")
