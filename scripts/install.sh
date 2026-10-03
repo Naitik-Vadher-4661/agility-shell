@@ -468,27 +468,42 @@ seed_user_configuration() {
         info "Seeded default suits.json"
     fi
 
-    # Seed baseline styles if not present
+    # Migrate or seed baseline styles into custom_style
+    mkdir -p "$USER_CONFIG/custom_style"
+    if [[ -d "$USER_CONFIG/style" ]]; then
+        for f in "$USER_CONFIG/style"/*.css; do
+            [[ -f "$f" ]] || continue
+            local base_f
+            base_f="$(basename "$f")"
+            if [[ ! -f "$USER_CONFIG/custom_style/$base_f" ]]; then
+                cp "$f" "$USER_CONFIG/custom_style/$base_f"
+            fi
+        done
+    fi
+
     for css in borders.css fonts.css colors.css; do
-        if [[ ! -f "$USER_CONFIG/style/$css" && -f "$src_data/style/$css" ]]; then
-            cp "$src_data/style/$css" "$USER_CONFIG/style/$css"
+        if [[ ! -f "$USER_CONFIG/custom_style/$css" && -f "$src_data/style/$css" ]]; then
+            cp "$src_data/style/$css" "$USER_CONFIG/custom_style/$css"
         fi
     done
 
-    # Prune stale legacy component stylesheets in user style dir that shadow updated system stylesheets
-    for f in "$USER_CONFIG/style"/*.css; do
-        [[ -f "$f" ]] || continue
-        local fname
-        fname="$(basename "$f")"
-        case "$fname" in
-            borders.css|fonts.css|font.css|colors.css|agility-shell-colors.css|custom*.css)
-                ;;
-            *)
-                if [[ -f "$src_data/style/$fname" ]]; then
-                    rm -f "$f"
-                fi
-                ;;
-        esac
+    # Prune stale legacy component stylesheets in user custom_style dir
+    for dir in "$USER_CONFIG/custom_style" "$USER_CONFIG/style"; do
+        [[ -d "$dir" ]] || continue
+        for f in "$dir"/*.css; do
+            [[ -f "$f" ]] || continue
+            local fname
+            fname="$(basename "$f")"
+            case "$fname" in
+                borders.css|border.css|fonts.css|font.css|colors.css|color.css|agility-shell-colors.css|custom*.css|style.css)
+                    ;;
+                *)
+                    if [[ -f "$src_data/style/$fname" ]]; then
+                        rm -f "$f"
+                    fi
+                    ;;
+            esac
+        done
     done
 
     # Seed baseline niri.kdl if not present
@@ -582,7 +597,7 @@ setup_matugen() {
 # Agility Shell Colors
 [templates.agility]
 input_path = '/usr/share/agility-shell/style/agility-shell-colors.css'
-output_path = '~/.config/agility-shell/style/colors.css'
+output_path = '~/.config/agility-shell/custom_style/colors.css'
 MATUGEN_EOF
     fi
     success "Matugen configured."

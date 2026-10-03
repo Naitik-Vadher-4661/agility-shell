@@ -10,6 +10,7 @@ from services.paths import (
     get_suits_config_path,
     get_user_state_dir,
     resolve_style_file,
+    get_user_style_dir,
 )
 
 def _on_signal(*_):
@@ -26,20 +27,32 @@ logger.add(sys.stderr, level=log_level, format="<green>{time:YYYY-MM-DD HH:mm:ss
 def seed_user_environment():
     user_dir = get_user_config_dir()
     cfg_dir = os.path.join(user_dir, "config")
-    style_dir = os.path.join(user_dir, "style")
+    custom_style_dir = get_user_style_dir()
+    legacy_style_dir = os.path.join(user_dir, "style")
     state_dir = get_user_state_dir()
 
     os.makedirs(cfg_dir, exist_ok=True)
-    os.makedirs(style_dir, exist_ok=True)
+    os.makedirs(custom_style_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
+
+    # Migrate existing files from legacy style dir to custom_style dir if needed
+    if os.path.isdir(legacy_style_dir):
+        for fname in os.listdir(legacy_style_dir):
+            src_f = os.path.join(legacy_style_dir, fname)
+            dst_f = os.path.join(custom_style_dir, fname)
+            if os.path.isfile(src_f) and not os.path.exists(dst_f):
+                try:
+                    shutil.copy2(src_f, dst_f)
+                except Exception:
+                    pass
 
     # Ensure core configuration files are present
     get_config_path("config.json")
     get_suits_config_path()
 
-    # Seed baseline stylesheets into user style dir if missing
+    # Seed baseline stylesheets into user custom_style dir if missing
     for css_file in ["borders.css", "fonts.css", "colors.css"]:
-        user_css = os.path.join(style_dir, css_file)
+        user_css = os.path.join(custom_style_dir, css_file)
         if not os.path.exists(user_css):
             default_css = resolve_style_file(css_file)
             if os.path.exists(default_css) and default_css != user_css:
@@ -48,16 +61,22 @@ def seed_user_environment():
                 except Exception:
                     pass
 
-    # Clean up stale legacy component stylesheets in user style dir that shadow updated system stylesheets
-    # Keep user customization files: borders, fonts, colors, agility-shell-colors, or custom*
-    whitelist = {"borders.css", "fonts.css", "font.css", "colors.css", "agility-shell-colors.css", "custom.css"}
-    if os.path.isdir(style_dir):
-        for fname in os.listdir(style_dir):
-            if fname.endswith(".css") and fname not in whitelist and not fname.startswith("custom"):
-                try:
-                    os.remove(os.path.join(style_dir, fname))
-                except Exception:
-                    pass
+    # Clean up stale legacy component stylesheets in user custom_style dir that shadow updated system stylesheets
+    whitelist = {
+        "borders.css", "border.css",
+        "fonts.css", "font.css",
+        "colors.css", "color.css",
+        "agility-shell-colors.css",
+        "custom.css", "style.css",
+    }
+    for target_dir in [custom_style_dir, legacy_style_dir]:
+        if os.path.isdir(target_dir):
+            for fname in os.listdir(target_dir):
+                if fname.endswith(".css") and fname not in whitelist and not fname.startswith("custom"):
+                    try:
+                        os.remove(os.path.join(target_dir, fname))
+                    except Exception:
+                        pass
 
     # Migrate existing widget settings if needed
     user_settings = os.path.join(user_dir, "widget_settings.json")

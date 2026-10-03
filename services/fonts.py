@@ -10,7 +10,7 @@ import gi
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import GLib, PangoCairo
 
-from services.paths import get_user_config_dir, get_search_data_dirs, get_repo_dir
+from services.paths import get_user_config_dir, get_search_data_dirs, get_repo_dir, get_user_style_dirs
 
 FONTS_CACHE_DIR = os.path.expanduser("~/.local/share/fonts/agility-shell")
 
@@ -41,22 +41,14 @@ def init_installed_fonts() -> None:
 
 def resolve_user_font_file() -> str | None:
     """
-    Searches for a user font stylesheet in priority order:
-    1. ~/.config/agility-shell/styles/font.css
-    2. ~/.config/agility-shell/styles/fonts.css
-    3. ~/.config/agility-shell/style/font.css
-    4. ~/.config/agility-shell/style/fonts.css
+    Searches for a user font stylesheet in priority order across user style directories:
+    (custom_style, custom_styles, style, styles)
     """
-    user_config = get_user_config_dir()
-    candidates = [
-        os.path.join(user_config, "styles", "font.css"),
-        os.path.join(user_config, "styles", "fonts.css"),
-        os.path.join(user_config, "style", "font.css"),
-        os.path.join(user_config, "style", "fonts.css"),
-    ]
-    for path in candidates:
-        if os.path.isfile(path):
-            return path
+    for style_dir in get_user_style_dirs():
+        for name in ["font.css", "fonts.css"]:
+            p = os.path.join(style_dir, name)
+            if os.path.isfile(p):
+                return p
     return None
 
 
