@@ -495,12 +495,19 @@ seed_user_configuration() {
 
     # Prune stale legacy component stylesheets in user custom_style dir
     if [[ -d "$USER_CONFIG/custom_style" ]]; then
+        if [[ -f "$USER_CONFIG/custom_style/border.css" && -f "$USER_CONFIG/custom_style/borders.css" ]]; then
+            rm -f "$USER_CONFIG/custom_style/borders.css"
+        fi
+        if [[ -f "$USER_CONFIG/custom_style/font.css" && -f "$USER_CONFIG/custom_style/fonts.css" ]]; then
+            rm -f "$USER_CONFIG/custom_style/fonts.css"
+        fi
+
         for f in "$USER_CONFIG/custom_style"/*.css; do
             [[ -f "$f" ]] || continue
             local fname
             fname="$(basename "$f")"
             case "$fname" in
-                borders.css|border.css|fonts.css|font.css|colors.css|color.css|agility-shell-colors.css|custom*.css|style.css)
+                border.css|font.css|color.css|colors.css|agility-shell-colors.css|custom*.css)
                     ;;
                 *)
                     if [[ -f "$src_data/style/$fname" ]]; then

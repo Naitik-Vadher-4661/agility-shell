@@ -10,7 +10,7 @@ import gi
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import GLib, PangoCairo
 
-from services.paths import get_user_config_dir, get_search_data_dirs, get_repo_dir, get_user_style_dirs
+from services.paths import get_user_config_dir, get_search_data_dirs, get_repo_dir, get_user_style_dirs, get_system_style_file
 
 FONTS_CACHE_DIR = os.path.expanduser("~/.local/share/fonts/agility-shell")
 
@@ -158,40 +158,50 @@ class FontService:
         If a Google Fonts import URL is detected, schedules background download,
         strips the remote HTTP import, and injects font variables and global font-family rules.
         """
+        # Baseline system font definitions
+        system_font_file = get_system_style_file("fonts.css")
+        base_font_css = ""
+        if system_font_file and os.path.isfile(system_font_file):
+            try:
+                with open(system_font_file, "r") as f:
+                    base_font_css = f.read()
+            except Exception:
+                pass
+        if not base_font_css.strip():
+            base_font_css = "@define mixed-mono unset;\n@define always-mono unset;\n"
+
         font_file = resolve_user_font_file()
-        if not font_file:
-            # Fall back to default repo fonts.css
-            default_path = os.path.join(get_repo_dir(), "style", "fonts.css")
-            if os.path.isfile(default_path):
-                try:
-                    with open(default_path, "r") as f:
-                        return f.read()
-                except Exception:
-                    pass
-            return "@define mixed-mono unset;\n@define always-mono unset;\n"
+        if not font_file or not os.path.isfile(font_file):
+            return base_font_css
 
         try:
             with open(font_file, "r") as f:
                 raw_content = f.read()
         except Exception as e:
             logger.error(f"[FontService] Error reading font file {font_file}: {e}")
-            return "@define mixed-mono unset;\n@define always-mono unset;\n"
+            return base_font_css
 
-        # Match @import url("https://fonts.googleapis.com/...") or @import "https://..." or raw https://fonts.googleapis.com/...
+        # Strip comments BEFORE checking for imports or active rules
+        clean_content = re.sub(r'/\*.*?\*/', '', raw_content, flags=re.DOTALL)
+        if not clean_content.strip():
+            return base_font_css
+
+        # Match active @import url("https://fonts.googleapis.com/...") or raw https://fonts.googleapis.com/...
         import_pattern = re.compile(r'@import\s+(?:url\()?["\']?(https://fonts\.googleapis\.com/[^"\')]+)["\']?\)?\s*;?')
         raw_url_pattern = re.compile(r'^\s*(https://fonts\.googleapis\.com/\S+)\s*$', re.MULTILINE)
 
-        found_urls = import_pattern.findall(raw_content)
-        found_urls.extend(raw_url_pattern.findall(raw_content))
-
-        # Deduplicate while preserving order
+        found_urls = import_pattern.findall(clean_content)
+        found_urls.extend(raw_url_pattern.findall(clean_content))
         unique_urls = list(dict.fromkeys(found_urls))
 
-        cleaned_content = import_pattern.sub("/* Google Font imported */", raw_content)
-        cleaned_content = raw_url_pattern.sub("/* Google Font imported */", cleaned_content)
+        cleaned_user_css = import_pattern.sub("", clean_content)
+        cleaned_user_css = raw_url_pattern.sub("", cleaned_user_css)
+        cleaned_user_css = re.sub(r':(?:root|vars)\s*\{[^}]*\}', '', cleaned_user_css)
 
         if not unique_urls:
-            return cleaned_content
+            if cleaned_user_css.strip():
+                return base_font_css.strip() + "\n" + cleaned_user_css.strip() + "\n"
+            return base_font_css
 
         primary_family = None
         for u in unique_urls:
@@ -206,7 +216,6 @@ class FontService:
             is_mono = any(term in primary_family.lower() for term in ["mono", "code", "console"])
             fallback = "monospace" if is_mono else "sans-serif"
             injected_css = (
-                f"\n/* Auto-injected Agility Shell font definitions for '{primary_family}' */\n"
                 f'@define mixed-mono "{primary_family}";\n'
                 f'@define always-mono "{primary_family}";\n'
                 f'* {{\n'
@@ -214,7 +223,13 @@ class FontService:
                 f'}}\n'
             )
 
-        return injected_css + "\n" + cleaned_content
+        parts = [base_font_css.strip()]
+        if injected_css.strip():
+            parts.append(injected_css.strip())
+        if cleaned_user_css.strip():
+            parts.append(cleaned_user_css.strip())
+
+        return "\n".join(parts) + "\n"
 
 
 # Singleton instance

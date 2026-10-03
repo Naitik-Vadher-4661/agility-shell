@@ -187,15 +187,27 @@ def get_user_style_dirs() -> List[str]:
         os.path.join(user_config, "styles"),
     ]
 
+def get_system_style_file(filename: str) -> str | None:
+    """Returns the path to a stock system stylesheet, bypassing user overrides."""
+    repo_file = os.path.join(get_repo_dir(), "style", filename)
+    if os.path.isfile(repo_file):
+        return repo_file
+    for base in get_system_data_dirs():
+        for folder in ["style", "styles"]:
+            p = os.path.join(base, folder, filename)
+            if os.path.isfile(p):
+                return p
+    return None
+
 def resolve_style_file(filename: str) -> str:
     """Resolves a stylesheet file checking user custom_style overrides first, then system defaults."""
     alias_map = {
         "border.css": ["border.css", "borders.css"],
-        "borders.css": ["border.css", "borders.css"],
+        "borders.css": ["borders.css", "border.css"],
         "color.css": ["color.css", "colors.css"],
-        "colors.css": ["color.css", "colors.css"],
+        "colors.css": ["colors.css", "color.css"],
         "font.css": ["font.css", "fonts.css"],
-        "fonts.css": ["font.css", "fonts.css"],
+        "fonts.css": ["fonts.css", "font.css"],
     }
     candidate_names = alias_map.get(filename, [filename])
 

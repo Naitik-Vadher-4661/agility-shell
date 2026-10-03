@@ -79,6 +79,18 @@ def seed_user_environment():
         "README.md",
     }
     if os.path.isdir(custom_style_dir):
+        # Remove legacy plural duplicates if standard singular user templates are present
+        if os.path.isfile(os.path.join(custom_style_dir, "border.css")) and os.path.isfile(os.path.join(custom_style_dir, "borders.css")):
+            try:
+                os.remove(os.path.join(custom_style_dir, "borders.css"))
+            except Exception:
+                pass
+        if os.path.isfile(os.path.join(custom_style_dir, "font.css")) and os.path.isfile(os.path.join(custom_style_dir, "fonts.css")):
+            try:
+                os.remove(os.path.join(custom_style_dir, "fonts.css"))
+            except Exception:
+                pass
+
         for fname in os.listdir(custom_style_dir):
             if fname.endswith(".css") and fname not in whitelist and not fname.startswith("custom"):
                 try:

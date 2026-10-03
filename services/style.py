@@ -5,41 +5,81 @@ from fabric.utils import monitor_file
 from gi.repository import GLib
 from loguru import logger
 from plugin_loader import apply_plugin_css
-from services.paths import get_user_config_dir, get_repo_dir, resolve_style_file, get_user_style_dirs, get_user_style_dir
+from services.paths import (
+    get_user_config_dir,
+    get_repo_dir,
+    resolve_style_file,
+    get_user_style_dirs,
+    get_user_style_dir,
+    get_system_style_file,
+)
 from services.fonts import font_service
 
 
 def compile_border_css(content: str) -> str:
-    """Compiles custom border CSS, supporting CSS variable syntax like --radius-m: 12px;"""
-    var_matches = re.findall(r'--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);', content)
+    """
+    Compiles custom border CSS.
+    Strips comments and converts CSS variables (e.g. --radius-m: 12px;) to @define constants.
+    Removes :root / :vars wrappers to ensure GTK CSS compatibility.
+    """
+    clean = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    if not clean.strip():
+        return ""
+
     added = []
-    existing = set(re.findall(r'@define\s+([a-zA-Z0-9_-]+)', content))
+    existing = set(re.findall(r'@define\s+([a-zA-Z0-9_-]+)', clean))
+    var_matches = re.findall(r'--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);', clean)
     for k, v in var_matches:
         if k not in existing and (k.startswith('radius') or 'radius' in k):
             added.append(f"@define {k} {v.strip()};")
+
+    sanitized = re.sub(r':(?:root|vars)\s*\{[^}]*\}', '', clean)
+    sanitized = re.sub(r'--[a-zA-Z0-9_-]+\s*:\s*[^;]+;', '', sanitized)
+
+    parts = []
     if added:
-        return "\n".join(added) + "\n" + content
-    return content
+        parts.extend(added)
+    if sanitized.strip():
+        parts.append(sanitized.strip())
+
+    return "\n".join(parts)
 
 
 def compile_color_css(content: str) -> str:
-    """Compiles custom color CSS, supporting CSS variable syntax like --primary: #...;"""
-    var_matches = re.findall(r'--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);', content)
+    """
+    Compiles custom color CSS.
+    Strips comments and converts CSS variables (e.g. --primary: #bb9af7;) to @define-color.
+    Removes :root / :vars wrappers to ensure GTK CSS compatibility.
+    """
+    clean = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    if not clean.strip():
+        return ""
+
     added = []
-    existing = set(re.findall(r'@define-color\s+([a-zA-Z0-9_-]+)', content))
+    existing = set(re.findall(r'@define-color\s+([a-zA-Z0-9_-]+)', clean))
+    var_matches = re.findall(r'--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);', clean)
     for k, v in var_matches:
         if k not in existing and not k.startswith('radius'):
             added.append(f"@define-color {k} {v.strip()};")
+
+    sanitized = re.sub(r':(?:root|vars)\s*\{[^}]*\}', '', clean)
+    sanitized = re.sub(r'--[a-zA-Z0-9_-]+\s*:\s*([^;]+);', '', sanitized)
+
+    parts = []
     if added:
-        return "\n".join(added) + "\n" + content
-    return content
+        parts.extend(added)
+    if sanitized.strip():
+        parts.append(sanitized.strip())
+
+    return "\n".join(parts)
 
 
 def compile_resolved_stylesheet(reload_callback=None) -> str | None:
     """
-    Loads style.css and resolves every @import "<file>" with resolve_style_file(fname),
-    ensuring user overrides in ~/.config/agility-shell/custom_style/ (such as user borders.css,
-    colors.css, fonts.css) take precedence over static repo defaults.
+    Loads style.css and resolves every @import "<file>".
+    Ensures user overrides in ~/.config/agility-shell/custom_style/ (such as user border.css,
+    color.css, font.css) take precedence over static repo defaults while ALWAYS including
+    system defaults (borders.css, Matugen colors.css, fonts.css) as baselines.
     Also compiles user font definitions (including automatic Google Fonts download & registration)
     and appends custom.css if present in the user style directory.
     """
@@ -58,26 +98,79 @@ def compile_resolved_stylesheet(reload_callback=None) -> str | None:
                 return f"\n/* --- Font Definitions --- */\n{compiled_fonts}\n"
 
             if fname in ("borders.css", "border.css"):
-                resolved = resolve_style_file(fname)
-                if os.path.isfile(resolved):
+                # 1. Base system borders
+                base_border_file = get_system_style_file("borders.css")
+                base_border_css = ""
+                if base_border_file and os.path.isfile(base_border_file):
                     try:
-                        with open(resolved, "r") as bf:
-                            compiled_border = compile_border_css(bf.read())
-                        return f"\n/* --- Border Definitions --- */\n{compiled_border}\n"
+                        with open(base_border_file, "r") as bf:
+                            base_border_css = bf.read()
                     except Exception as be:
-                        logger.warning(f"[StyleService] Error reading border file {resolved}: {be}")
-                return match.group(0)
+                        logger.warning(f"[StyleService] Error reading base border file: {be}")
+
+                # 2. User border overrides
+                user_border_file = None
+                for sdir in get_user_style_dirs():
+                    for bname in ["border.css", "borders.css"]:
+                        p = os.path.join(sdir, bname)
+                        if os.path.isfile(p) and (not base_border_file or os.path.abspath(p) != os.path.abspath(base_border_file)):
+                            user_border_file = p
+                            break
+                    if user_border_file:
+                        break
+
+                user_border_css = ""
+                if user_border_file and os.path.isfile(user_border_file):
+                    try:
+                        with open(user_border_file, "r") as ubf:
+                            user_border_css = compile_border_css(ubf.read())
+                    except Exception as ube:
+                        logger.warning(f"[StyleService] Error reading user border file {user_border_file}: {ube}")
+
+                combined = base_border_css.strip()
+                if user_border_css.strip():
+                    combined += "\n" + user_border_css.strip()
+                return f"\n/* --- Border Definitions --- */\n{combined}\n"
 
             if fname in ("colors.css", "color.css"):
-                resolved = resolve_style_file(fname)
-                if os.path.isfile(resolved):
+                # 1. Active Matugen generated colors (or system fallback)
+                matugen_color_file = None
+                for sdir in get_user_style_dirs():
+                    p = os.path.join(sdir, "colors.css")
+                    if os.path.isfile(p):
+                        matugen_color_file = p
+                        break
+                if not matugen_color_file:
+                    matugen_color_file = get_system_style_file("colors.css")
+
+                base_color_css = ""
+                if matugen_color_file and os.path.isfile(matugen_color_file):
                     try:
-                        with open(resolved, "r") as cf:
-                            compiled_color = compile_color_css(cf.read())
-                        return f"\n/* --- Color Definitions --- */\n{compiled_color}\n"
+                        with open(matugen_color_file, "r") as cf:
+                            base_color_css = cf.read()
                     except Exception as ce:
-                        logger.warning(f"[StyleService] Error reading color file {resolved}: {ce}")
-                return match.group(0)
+                        logger.warning(f"[StyleService] Error reading matugen color file: {ce}")
+
+                # 2. User custom color overrides
+                user_color_file = None
+                for sdir in get_user_style_dirs():
+                    p = os.path.join(sdir, "color.css")
+                    if os.path.isfile(p):
+                        user_color_file = p
+                        break
+
+                user_color_css = ""
+                if user_color_file and os.path.isfile(user_color_file):
+                    try:
+                        with open(user_color_file, "r") as ucf:
+                            user_color_css = compile_color_css(ucf.read())
+                    except Exception as uce:
+                        logger.warning(f"[StyleService] Error reading user color file {user_color_file}: {uce}")
+
+                combined = base_color_css.strip()
+                if user_color_css.strip():
+                    combined += "\n" + user_color_css.strip()
+                return f"\n/* --- Color Definitions --- */\n{combined}\n"
 
             resolved = resolve_style_file(fname)
             if os.path.isfile(resolved):
@@ -88,23 +181,20 @@ def compile_resolved_stylesheet(reload_callback=None) -> str | None:
 
         user_custom = None
         for sdir in get_user_style_dirs():
-            for cname in ["custom.css", "style.css"]:
-                candidate = os.path.join(sdir, cname)
-                # Don't import target_style into itself if target_style was user style.css
-                if os.path.isfile(candidate) and os.path.abspath(candidate) != os.path.abspath(target_style):
-                    user_custom = candidate
-                    break
-            if user_custom:
+            candidate = os.path.join(sdir, "custom.css")
+            if os.path.isfile(candidate):
+                user_custom = candidate
                 break
 
         if user_custom and os.path.isfile(user_custom):
             try:
                 with open(user_custom, "r") as uf:
                     custom_content = uf.read()
-                resolved_css += f"\n/* --- Custom Overrides ({user_custom}) --- */\n{custom_content}\n"
+                clean_custom = re.sub(r'/\*.*?\*/', '', custom_content, flags=re.DOTALL)
+                if clean_custom.strip():
+                    resolved_css += f"\n/* --- Custom Overrides ({user_custom}) --- */\n{custom_content}\n"
             except Exception as ue:
                 logger.warning(f"[StyleService] Error reading custom stylesheet {user_custom}: {ue}")
-                resolved_css += f'\n@import "{user_custom}";\n'
 
         return resolved_css
     except Exception as e:
