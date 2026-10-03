@@ -415,6 +415,15 @@ class UnifiedPopoutManager:
             self.window.set_visible(True)
             self.window.show_all()
 
+        # Ensure the bar remains revealed and cancel any pending autohide timeout
+        if hasattr(self.bar, "_revealer") and self.bar._revealer:
+            self.bar._revealer.set_reveal_child(True)
+        if hasattr(self.bar, "_centerbox") and self.bar._centerbox:
+            self.bar._centerbox.add_style_class("revealed")
+        if hasattr(self.bar, "_hide_timeout") and self.bar._hide_timeout is not None:
+            GLib.source_remove(self.bar._hide_timeout)
+            self.bar._hide_timeout = None
+
     def close(self):
         """Close the popout and scrim gracefully."""
         if not self.is_open and not self.window.get_visible() and not self.scrim.get_visible():
@@ -441,3 +450,6 @@ class UnifiedPopoutManager:
             self.window.set_visible(False)
         if self.scrim.get_visible():
             self.scrim.set_visible(False)
+
+        if hasattr(self.bar, "_on_applet_closed"):
+            GLib.idle_add(self.bar._on_applet_closed)
