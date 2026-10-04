@@ -1852,7 +1852,18 @@ class Bar(Window):
         self.queue_resize()
         self.resize(1, 1)
         if hasattr(self, "_blur_ctx") and self._blur_ctx:
-            GLib.timeout_add(250, self._update_blur_region)
+            if getattr(self, "_blur_timeout", None) is not None:
+                try:
+                    GLib.source_remove(self._blur_timeout)
+                except Exception:
+                    pass
+                self._blur_timeout = None
+
+            def _do_blur():
+                self._blur_timeout = None
+                return self._update_blur_region()
+
+            self._blur_timeout = GLib.timeout_add(250, _do_blur)
 
     def _update_child_bar_height(self, wrapper, height: int, widget_h: int, scale_sz: int):
         def _apply_to_widget(w):

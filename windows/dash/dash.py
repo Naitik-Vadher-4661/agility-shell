@@ -522,3 +522,4 @@ class Dash(Window):
         self.v_stack.set_visible_child(self.h_group_1)
         self.h_group_1.set_visible_child(self.launcher)
         edit_mode.disable()
+        user_options.flush_save()
