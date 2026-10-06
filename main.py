@@ -64,6 +64,8 @@ def seed_user_environment():
     # Ensure core configuration files are present
     get_config_path("config.json")
     get_suits_config_path()
+    get_config_path("niri.kdl")
+    get_config_path("lniri.kdl")
 
     # Seed template custom_style files if missing
     for template_name in ["border.css", "font.css", "color.css", "README.md"]:

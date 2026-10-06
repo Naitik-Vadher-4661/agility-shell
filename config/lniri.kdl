@@ -1,0 +1,313 @@
+// =============================================================================
+//  Agility Shell -- Lniri Liquid Glass Layer Configuration
+// =============================================================================
+//
+//  This configuration enables real-time optical liquid-glass refraction,
+//  caustic bevels, and wallpaper edge-lighting across Agility Shell surfaces
+//  when running the Lniri compositor (https://github.com/TattvaOrg/Lniri).
+//
+//  HOW TO ENABLE IN LNIRI:
+//  Add the following line to your ~/.config/niri/config.kdl or ~/.config/lniri/config.kdl:
+//
+//      include "~/.config/agility-shell/config/lniri.kdl"
+//
+//  (Or use optional=true if you also run vanilla niri):
+//      include optional=true "~/.config/agility-shell/config/lniri.kdl"
+//
+//  TIPS FOR BEST AESTHETICS:
+//  1. A wallpaper daemon (awww / swww / hyprpaper / swaybg) MUST be running.
+//     Pure black background (0x0) has no pixels to bend or reflect.
+//  2. In Agility Shell Dash -> Settings -> Appearance:
+//     - Set "Floating Bar" to ON for curved glass corners.
+//     - Set Bar Background Opacity to 40% - 70% so the refracted wallpaper shines through.
+//  3. Disable white focus border frames in your config.kdl layout section:
+//     layout { focus-ring { off; } border { off; } }
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. THE BAR (agility-shell-bar)
+// -----------------------------------------------------------------------------
+// Controls the primary top or bottom status bar.
+layer-rule {
+    match namespace="^agility-shell-bar$"
+
+    // Corner radius for the SDF glass curvature calculation.
+    // Match this with your floating bar border radius (e.g. 12 or 16).
+    geometry-corner-radius 14
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            // mode: "liquid" (fluid water-drop) or "kwin-glass" (Snell caustic pipeline)
+            mode "liquid"
+
+            // Liquidity: 0.0 = flat glass, 1.0 = deep water-drop curvature, 2.0+ = heavy fluid
+            liquidity 0.85
+
+            // Refraction strength (Index of Refraction = 1.0 + strength)
+            refraction-strength 3.8
+
+            // Falloff curve from border inwards (lower = wider glass bevel)
+            power-factor 3.2
+
+            // Exponential power applied to displacement vectors
+            refraction-power 1.2
+
+            // Chromatic dispersion (RGB prism fringing along glass borders)
+            fringing 0.35
+
+            // Blends wallpaper colors onto the outer glass border
+            edge-lighting 0.65
+
+            // Specular rim highlight and shadow line intensity
+            glow-weight 0.25
+
+            // Refracted background color saturation multiplier
+            saturation 1.15
+
+            // Luminance and vibrancy boost for glass substrates
+            vibrancy 0.40
+
+            // Darkens glass over very bright wallpapers for text readability (0.0 = pure clear)
+            adaptive-dim 0.05
+
+            // Lightens glass over very dark wallpapers
+            adaptive-boost 0.05
+
+            // Subtle barrel distortion across the surface
+            lens-distortion 0.15
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 2. DASH LAUNCHER & SETTINGS OVERLAY (agility-shell-dash)
+// -----------------------------------------------------------------------------
+// Controls the full-screen modal Dash, app launcher, and settings canvas.
+layer-rule {
+    match namespace="^agility-shell-dash$"
+
+    geometry-corner-radius 24
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            mode "liquid"
+            liquidity 0.90
+            refraction-strength 4.2
+            power-factor 4.0
+            refraction-power 1.3
+            fringing 0.45
+            edge-lighting 0.70
+            glow-weight 0.30
+            saturation 1.20
+            vibrancy 0.45
+            adaptive-dim 0.10
+            adaptive-boost 0.05
+            lens-distortion 0.20
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 3. POPUP MENUS & APPLETS (agility-shell-applet)
+// -----------------------------------------------------------------------------
+// Controls drop-down menus: Quick Settings, Wi-Fi, Bluetooth, Audio, Calendar, etc.
+layer-rule {
+    match namespace="^agility-shell-applet$"
+
+    geometry-corner-radius 16
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            mode "liquid"
+            liquidity 0.75
+            refraction-strength 3.5
+            power-factor 3.0
+            refraction-power 1.1
+            fringing 0.30
+            edge-lighting 0.60
+            glow-weight 0.25
+            saturation 1.10
+            vibrancy 0.35
+            adaptive-dim 0.05
+            adaptive-boost 0.05
+            lens-distortion 0.12
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 4. ON-SCREEN DISPLAY (agility-shell-osd)
+// -----------------------------------------------------------------------------
+// Controls volume, brightness, and audio change HUD pills.
+layer-rule {
+    match namespace="^agility-shell-osd$"
+
+    geometry-corner-radius 18
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            mode "liquid"
+            liquidity 0.80
+            refraction-strength 3.6
+            power-factor 3.5
+            refraction-power 1.2
+            fringing 0.35
+            edge-lighting 0.65
+            glow-weight 0.30
+            saturation 1.15
+            vibrancy 0.40
+            lens-distortion 0.15
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 5. NOTIFICATION TOASTS (agility-shell-notifications)
+// -----------------------------------------------------------------------------
+// Controls incoming system notification popups.
+layer-rule {
+    match namespace="^agility-shell-notifications$"
+
+    geometry-corner-radius 16
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            mode "liquid"
+            liquidity 0.70
+            refraction-strength 3.2
+            power-factor 3.0
+            refraction-power 1.0
+            fringing 0.25
+            edge-lighting 0.55
+            glow-weight 0.20
+            saturation 1.10
+            vibrancy 0.30
+            adaptive-dim 0.08
+            lens-distortion 0.10
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 6. DESKTOP CANVAS APPLETS (agility-shell-desktop-applets)
+// -----------------------------------------------------------------------------
+// Controls persistent widgets placed directly on the desktop wallpaper.
+layer-rule {
+    match namespace="^agility-shell-desktop-applets$"
+
+    geometry-corner-radius 20
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            mode "liquid"
+            liquidity 0.85
+            refraction-strength 4.0
+            power-factor 3.5
+            refraction-power 1.2
+            fringing 0.40
+            edge-lighting 0.70
+            glow-weight 0.30
+            saturation 1.20
+            vibrancy 0.40
+            adaptive-dim 0.05
+            lens-distortion 0.18
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 7. WALLPAPER PICKER & DRAWER GALLERIES
+// -----------------------------------------------------------------------------
+layer-rule {
+    match namespace="^agility-shell-wallpaper-.*$"
+
+    geometry-corner-radius 20
+
+    background-effect {
+        blur false
+        xray true
+
+        liquid-glass {
+            mode "liquid"
+            liquidity 0.80
+            refraction-strength 3.5
+            power-factor 3.2
+            refraction-power 1.1
+            fringing 0.30
+            edge-lighting 0.60
+            glow-weight 0.25
+            saturation 1.15
+            vibrancy 0.35
+            lens-distortion 0.15
+        }
+    }
+}
+
+// =============================================================================
+// ALTERNATIVE CURATED PRESETS
+// =============================================================================
+// To switch presets, replace the `liquid-glass { ... }` block in any rule above:
+
+// --- PRESET A: Subtle Crystal (Clean, minimal distortion, crisp glass rim) ---
+// liquid-glass {
+//     mode "liquid"
+//     liquidity 0.30
+//     refraction-strength 2.0
+//     power-factor 2.5
+//     refraction-power 0.8
+//     fringing 0.15
+//     edge-lighting 0.40
+//     glow-weight 0.15
+//     saturation 1.05
+//     vibrancy 0.20
+//     lens-distortion 0.05
+// }
+
+// --- PRESET B: Cyberpunk Neon Rim (Electric glowing edge highlights) ---
+// liquid-glass {
+//     mode "liquid"
+//     liquidity 0.85
+//     refraction-strength 4.5
+//     power-factor 3.5
+//     refraction-power 1.5
+//     fringing 0.60
+//     edge-lighting 1.00
+//     glow-weight 0.50
+//     saturation 1.35
+//     vibrancy 0.50
+//     lens-distortion 0.25
+// }
+
+// --- PRESET C: Frosted Smoked Glass (Dark tinted glass for busy wallpapers) ---
+// liquid-glass {
+//     mode "liquid"
+//     liquidity 0.50
+//     refraction-strength 2.5
+//     power-factor 3.0
+//     refraction-power 1.0
+//     fringing 0.20
+//     edge-lighting 0.40
+//     glow-weight 0.10
+//     saturation 1.00
+//     vibrancy 0.20
+//     adaptive-dim 0.35
+//     lens-distortion 0.08
+// }

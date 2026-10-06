@@ -17,9 +17,22 @@ While agility shell does not manage window configurations itself, it connects na
 
 | Window Manager | Status |
 | -------------- | ------ |
-| **Niri**       | Stable |
+| **Niri** / **Lniri** | Stable *(Native Liquid Glass support)* |
 | **Hyprland**   | Beta   |
 | **MangoWM**    | Beta   |
+
+---
+
+## Lniri Liquid Glass Integration
+
+Agility Shell natively supports **[Lniri](https://github.com/TattvaOrg/Lniri)**, the optical liquid-glass refraction engine for Niri. When running under Lniri, Agility Shell's bar, popouts, Dash, and notifications can be rendered as physical optical liquid glass with fluid surface-tension curvature, dynamic wallpaper edge-lighting, and chromatic prism dispersion.
+
+To enable liquid glass across Agility Shell in your `config.kdl`:
+```kdl
+include "~/.config/agility-shell/config/lniri.kdl"
+```
+
+For complete details, parameter reference, and curated aesthetic presets, see the [**Lniri Liquid Glass Guide (LNIRI.md)**](LNIRI.md).
 
 ---
 

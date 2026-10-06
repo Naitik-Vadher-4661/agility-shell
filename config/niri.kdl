@@ -30,3 +30,9 @@ binds {
     XF86MonBrightnessUp   allow-when-locked=true { spawn "agl" "brightness" "up"; }
     XF86MonBrightnessDown allow-when-locked=true { spawn "agl" "brightness" "down"; }
 }
+
+// -----------------------------------------------------------------------------
+// Optional: Lniri Liquid Glass Layer Rules
+// If you are running Lniri (https://github.com/TattvaOrg/Lniri), uncomment to enable:
+// include optional=true "lniri.kdl"
+// -----------------------------------------------------------------------------
