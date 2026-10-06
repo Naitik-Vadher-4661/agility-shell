@@ -32,7 +32,10 @@ binds {
 }
 
 // -----------------------------------------------------------------------------
-// Optional: Lniri Liquid Glass Layer Rules
-// If you are running Lniri (https://github.com/TattvaOrg/Lniri), uncomment to enable:
-// include optional=true "lniri.kdl"
+// Note for Lniri users:
+// If you are running Lniri (https://github.com/TattvaOrg/Lniri), include
+// "lniri.kdl" instead of "niri.kdl" in your compositor config:
+// include "~/.config/agility-shell/config/lniri.kdl"
+// "lniri.kdl" automatically imports this file and applies liquid glass effects.
 // -----------------------------------------------------------------------------
+

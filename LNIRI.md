@@ -71,18 +71,17 @@ Agility Shell automatically seeds a ready-to-use Lniri template file to `~/.conf
 
 To activate liquid glass across the entire shell:
 
-1. Open your Lniri config (`~/.config/niri/config.kdl` or `~/.config/lniri/config.kdl`).
+1. Open your compositor config (`~/.config/niri/config.kdl` or `~/.config/lniri/config.kdl`).
 2. Add this single line:
 
 ```kdl
 include "~/.config/agility-shell/config/lniri.kdl"
 ```
 
-*(If you switch between vanilla Niri and Lniri on the same system, you can use `include optional=true` so vanilla Niri does not error on custom Lniri shader syntax:)*
-
-```kdl
-include optional=true "~/.config/agility-shell/config/lniri.kdl"
-```
+> **Note**: You do **not** need to include `niri.kdl` when using `lniri.kdl`. `lniri.kdl` automatically imports `niri.kdl` internally to provide all keybindings, startup commands, and layout rules, and then attaches the liquid glass shader rules.
+>
+> - **In Lniri**: Use ONLY `include "~/.config/agility-shell/config/lniri.kdl"`
+> - **In Vanilla Niri**: Use ONLY `include "~/.config/agility-shell/config/niri.kdl"`
 
 3. Reload your compositor with `niri msg action reload-config` or restart your session.
 
