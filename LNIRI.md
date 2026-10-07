@@ -55,13 +55,14 @@ Agility Shell registers standard, predictable namespaces across all layer surfac
 
 | Component | Layer Surface Namespace | Layer | Typical Corner Radius |
 | :--- | :--- | :--- | :--- |
-| **Top / Bottom Bar** | `agility-shell-bar` | Top | `14` (Floating) / `0` (Full-width) |
+| **Top / Bottom Bar** | `agility-shell-bar` | Top | `16` (Floating) / `0` (Full-width) |
 | **Dash Launcher & Settings** | `agility-shell-dash` | Overlay | `24` |
-| **Applet Menus & Popouts** | `agility-shell-applet` | Top | `16` |
+| **Applet Popouts & Menus** | `agility-shell-unified-popout` (and `agility-shell-applet`) | Top | `18` |
 | **On-Screen Display (OSD)** | `agility-shell-osd` | Overlay | `18` |
 | **Notification Toasts** | `agility-shell-notifications` | Overlay | `16` |
-| **Desktop Canvas Widgets** | `agility-shell-desktop-applets`| Bottom | `20` |
-| **Wallpaper Gallery/Drawer** | `agility-shell-wallpaper-.*` | Top | `20` |
+| **Wallpaper Drawer Shelves** | `agility-shell-wallpaper-.*` | Top | `22` |
+
+> **Note on Desktop Widgets**: `agility-shell-desktop-applets` is intentionally excluded from liquid-glass layer rules. Because it covers the entire desktop, applying glass shaders to it would distort the `Super+O` workspace overview. Desktop canvas widgets render normally on top of your wallpaper.
 
 ---
 
