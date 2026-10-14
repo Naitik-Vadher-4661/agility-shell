@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/TattvaOrg/agility-shell.git"
+REPO_URL="https://github.com/Naitik-Vadher-4661/agility-shell.git"
 SYSTEM_DATA="/usr/share/agility-shell"
 SYSTEM_LIB="/usr/lib/agility-shell"
 SYSTEM_VENV="$SYSTEM_LIB/venv"
